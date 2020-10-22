@@ -9,7 +9,6 @@ class Job {
   /** Find all jobs (can filter on terms in data). */
 
   static async findAll(data, username) {
-    console.log(data);
     let baseQuery = `
       SELECT id, title, company_handle, salary, equity, a.state 
       FROM jobs 
@@ -40,11 +39,51 @@ class Job {
     }
 
     // Finalize query and return results
+    let itemsPerPage = data.limit || 10;
+    let page = data.page || 1;
 
-    let finalQuery = baseQuery + whereExpressions.join(" AND ");
+    let finalQuery = baseQuery + whereExpressions.join(" AND ")+`LIMIT ${itemsPerPage} OFFSET ${(page - 1) * itemsPerPage}`;
+    console.log("final query", finalQuery);
     const jobsRes = await db.query(finalQuery, queryValues);
     return jobsRes.rows;
   }
+
+  static async findJobsCount(data, username) {
+    let baseQuery = `SELECT count(*) FROM jobs 
+      LEFT OUTER JOIN applications AS a on a.job_id = id AND a.username = $1`;
+    let whereExpressions = [];
+    let queryValues = [username];
+
+    // For each possible search term, add to whereExpressions and
+    // queryValues so we can generate the right SQL
+
+    if (data.min_salary) {
+      queryValues.push(+data.min_employees);
+      whereExpressions.push(`min_salary >= $${queryValues.length}`);
+    }
+
+    if (data.max_equity) {
+      queryValues.push(+data.max_employees);
+      whereExpressions.push(`min_equity >= $${queryValues.length}`);
+    }
+
+    if (data.search) {
+      queryValues.push(`%${data.search}%`);
+      whereExpressions.push(`title ILIKE $${queryValues.length}`);
+    }
+
+    if (whereExpressions.length > 0) {
+      baseQuery += " WHERE ";
+    }
+
+    // Finalize query and return results
+
+    let finalQuery = baseQuery + whereExpressions.join(" AND ");
+    console.log("final query", finalQuery);
+    const count = await db.query(finalQuery, queryValues);
+    return count.rows[0];
+  }
+
 
   /** Given a job id, return data about job. */
 

@@ -24,6 +24,17 @@ router.get("/", authRequired, async function(req, res, next) {
   }
 });
 
+router.get("/count", authRequired, async function(req, res, next) {
+  try {
+    const count = await Job.findJobsCount(req.query, req.username);
+    return res.json(count);
+  }
+
+  catch (err) {
+    return next(err);
+  }
+});
+
 /** GET /[jobid] => {job: job} */
 
 router.get("/:id", authRequired, async function(req, res, next) {
