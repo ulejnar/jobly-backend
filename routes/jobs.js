@@ -125,6 +125,17 @@ router.post("/:id/apply", authRequired, async function(req, res, next) {
   }
 });
 
+router.patch("/:id/unapply", authRequired, async function(req, res, next) {
+  try {
+    console.log("hello")
+    await Job.unapply(req.params.id, req.username);
+    return res.json({ message: `application for job ${req.params.id} withdrawn` });
+  }
+
+  catch (err) {
+    return next(err);
+  }
+});
 
 
 module.exports = router;

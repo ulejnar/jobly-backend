@@ -1,3 +1,4 @@
+const e = require("express");
 const db = require("../db");
 const sqlForPartialUpdate = require("../helpers/partialUpdate");
 
@@ -175,22 +176,66 @@ class Job {
   /** Apply for job: update db, returns undefined. */
 
   static async apply(id, username, state) {
-      const result = await db.query(
-          `SELECT id 
-            FROM jobs 
-            WHERE id = $1`,
-          [id]);
+    const result = await db.query(
+        `SELECT id 
+          FROM jobs 
+          WHERE id = $1`,
+        [id]);
 
-      if (result.rows.length === 0) {
-        let notFound = new Error(`There exists no job '${id}`);
-        notFound.status = 404;
-        throw notFound;
-      }
+    if (result.rows.length === 0) {
+      let notFound = new Error(`There exists no job '${id}`);
+      notFound.status = 404;
+      throw notFound;
+    }
+    const duplicateCheck = await db.query(
+      `SELECT state
+        FROM applications 
+        WHERE job_id = $1 and username = $2`,
+      [id, username]);
+      console.log("duplicateCheck", duplicateCheck.rows[0])
 
+    if (duplicateCheck.rows[0].state==='applied') {
+      const err = new Error(
+          `The user ${username} already applied to job ${id}`);
+      err.status = 409;
+      throw err;
+    }
+
+    if (duplicateCheck.rows.length === 0) {
       await db.query(
-          `INSERT INTO applications (job_id, username, state) 
-            VALUES ($1, $2, $3)`,
-          [id, username, state]);
+        `INSERT INTO applications (job_id, username, state) 
+          VALUES ($1, $2, $3)`,
+        [id, username, state]);
+      
+    } else {
+      await db.query(
+        `UPDATE applications 
+        SET state=$1
+        WHERE username=$2 and job_id=$3`,
+        [state,username,id]);
+    } 
+  }
+
+  /** Cancel job application: update db, returns undefined. */
+
+  static async unapply(id, username) {
+    const result = await db.query(
+        `SELECT id 
+          FROM jobs 
+          WHERE id = $1`,
+        [id]);
+    
+    if (result.rows.length === 0) {
+      let notFound = new Error(`There exists no job '${id}`);
+      notFound.status = 404;
+      throw notFound;
+    }
+
+    await db.query(
+        `UPDATE applications 
+        SET state='application withdrawn'
+        WHERE username=$1 and job_id=$2`,
+        [username,id]);
   }
 }
 
